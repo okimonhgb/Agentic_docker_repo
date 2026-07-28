@@ -39,10 +39,14 @@ Classifies the booking-specific action from user input. Defined in [[agentic/age
 Categories: chitchat, check availability, book, reschedule, cancel, list appointments, list experts/services, admin block time, owner edit.
 
 ### Datetime agent
-Extracts and normalizes date/time expressions from natural language (Turkish and English). Defined in [[agentic/agents/booking/datetime_agent.py]]. Handles relative dates ("next Monday"), ranges ("this week"), and time preferences ("morning", "after 3pm").
+Extracts and normalizes date/time expressions from natural language (Turkish and English). Defined in [[agentic/agents/booking/datetime_agent.py]].
+
+Handles relative dates ("next Monday"), ranges ("this week"), and time preferences ("morning", "after 3pm"). When the LLM-resolved date is beyond the booking horizon, it clamps to `max_date` instead of rejecting, so the availability agent can still show the nearest slots.
 
 ### Availability agent
 Queries the database for available slots matching the requested service, resource, date, and time. Defined in [[agentic/agents/booking/availability_agent.py]].
+
+When the requested date is beyond the organization's booking horizon (max available slot date), the agent **clamps** the date to `max_date` and proceeds with the query, rather than rejecting it. This ensures users always see the nearest available slots.
 
 ### Negotiation agent
 When the requested slot is unavailable, proposes alternative nearby slots. Defined in [[agentic/agents/booking/negotiation_agent.py]].
@@ -83,6 +87,8 @@ The [[agentic/booking/booking_manager.py]] module is the database access layer f
 - Availability date range computation and caching.
 - Entity lexicon caching for name detection in user messages.
 - Slot querying against `booking_availability_settings` and `booking_appointments`.
+- Timezone-aware past-time filtering using `ZoneInfo("Europe/Istanbul")` (not container UTC) so slot availability matches the user's local time.
+- Dialect-aware SQL via `BaseRepository` helpers (`group_concat`, `curdate`, `date_sub_days`) for MySQL/PostgreSQL compatibility.
 
 ## Organization management
 

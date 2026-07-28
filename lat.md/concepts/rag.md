@@ -34,7 +34,7 @@ Assesses retrieved document relevance. Defined in [[agentic/agents/rag/grade_doc
 Validates that the generated answer is grounded in the retrieved documents (hallucination check). Defined in [[agentic/agents/rag/check_answer_agent.py]].
 
 ### Answer RAG agent
-Generates the final grounded answer from retrieved documents. Defined in [[agentic/agents/rag/answer_rag_agent.py]].
+Generates the final grounded answer from retrieved documents. Defined in [[agentic/agents/rag/answer_rag_agent.py]]. Injects timezone-aware current date and time into the system prompt so the LLM can answer date/time questions (e.g., "what time is it now?").
 
 ### Response agent
 Formats the final answer for user display. Defined in [[agentic/agents/rag/response_agent.py]].

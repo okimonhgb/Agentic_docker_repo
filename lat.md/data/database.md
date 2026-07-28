@@ -80,6 +80,24 @@ Key type mappings:
 - `longtext + json_valid()` → `JSONB` (JSON columns)
 - `AUTO_INCREMENT` → `SERIAL`/`BIGSERIAL` (with sequence sync)
 - MySQL zero dates `'0000-00-00 00:00:00'` → `NULL` or epoch
+- MySQL `database.sequence` syntax → unqualified `sequence` (PostgreSQL sequences are in `public` schema, not database name)
+- MySQL functions `GROUP_CONCAT`, `CURDATE()`, `DATE_SUB()` → dialect-aware helpers from `BaseRepository`
+
+## Dialect-aware SQL helpers
+
+The [[agentic/core/db/base_repository.py#BaseRepository]] class provides static methods that return dialect-appropriate SQL fragments, enabling the same code to run on both MySQL and PostgreSQL:
+
+- `group_concat(expr, order_by)` — `GROUP_CONCAT` (MySQL) or `STRING_AGG` (PostgreSQL)
+- `curdate()` — `CURDATE()` (MySQL) or `CURRENT_DATE` (PostgreSQL)
+- `date_sub_days(expr, days_param)` — `DATE_SUB(expr, INTERVAL n DAY)` (MySQL) or `(expr - (n * INTERVAL '1 day'))` (PostgreSQL)
+
+These are used in [[agentic/booking/booking_manager.py]] raw SQL queries via f-strings or string concatenation.
+
+## Sequence references
+
+MySQL uses `database.sequence` syntax (e.g., `platform.booking_req_seq`). In PostgreSQL, `platform` is the database, not a schema — sequences live in the `public` schema.
+
+The PostgreSQL code paths use unqualified `booking_req_seq` (resolves via `public` schema) instead of `platform.booking_req_seq`.
 
 ## MongoDB
 
