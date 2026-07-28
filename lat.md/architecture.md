@@ -1,6 +1,8 @@
 # Architecture Overview
 
-The Agentic Platform is a multi-service system that delivers AI-powered chatbot applications. It follows a layered architecture where services communicate over HTTP, sharing a single PostgreSQL database and MongoDB for conversation storage.
+The Agentic Platform is a multi-service system delivering AI-powered chatbot applications over HTTP.
+
+Both document storage (MongoDB/PostgreSQL) and vector storage (ChromaDB/pgvector) support dual backends selected at runtime via environment variables. Services share a single PostgreSQL database.
 
 ## System topology
 
@@ -39,4 +41,6 @@ The primary chat flow is: User → newui_test → agentic (LangGraph) → newui_
 
 ## Deployment
 
-Each service runs in its own Docker container with uvicorn (hot-reload in dev). PostgreSQL runs on port 5433 with the `pgvector` extension for vector storage. MongoDB runs on default port 27017. ChromaDB is available as a fallback vector store.
+Each service runs in its own Docker container with uvicorn (hot-reload in dev).
+
+PostgreSQL runs on port 5433 with `pgvector`. MongoDB runs on port 27017. `DOC_STORE_BACKEND` controls document storage backend (`mongodb` or `postgresql`), mirroring `VECTOR_STORE_BACKEND`.

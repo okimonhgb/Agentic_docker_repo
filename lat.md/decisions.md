@@ -73,3 +73,13 @@ Key architectural decisions, trade-offs, and rationale for the Agentic Platform.
 **Rationale:** These lookups happen on every chat turn (resolve service name → ID, check organization timezone). Database round-trips would add 5-20ms per lookup. In-process caching with short TTLs (60s for org data, 300s for availability ranges) provides near-database freshness with sub-microsecond access.
 
 **Trade-off:** Cache invalidation complexity — must explicitly clear caches on mutations (organization updates, slot bookings). The `invalidate_*` functions in `booking_manager.py` handle this.
+
+## MongoDB to PostgreSQL Migration
+
+**Decision:** Introduce a `DocStoreManager` abstraction layer that supports both MongoDB and PostgreSQL backends, selected at runtime via `DOC_STORE_BACKEND` env var, mirroring the existing [[concepts/doc-store|vector store dual-backend]] pattern.
+
+**Rationale:** Operating two document databases (MongoDB + PostgreSQL) increases infrastructure complexity. PostgreSQL JSONB with GIN indexes provides equivalent schema-less query capability while consolidating to a single database instance. The dual-backend approach allows gradual migration without downtime — existing MongoDB deployments continue working, and switching to PostgreSQL is a config change plus a data migration script run.
+
+**Trade-off:** The PostgreSQL adapter translates MongoDB-style filter operators (`$ne`, `$in`, `$gte`, etc.) to SQL JSONB queries, which adds a translation layer. Complex aggregation pipelines are replaced with Python-side processing for cross-backend compatibility. The trade-off is acceptable since the aggregation use cases (RAG reporting) are low-frequency and not latency-sensitive.
+
+**Implementation:** Three abstraction layers were created — `DocStoreManager` (async, for agentic/), `SyncDocStoreManager` (sync, for newui_test/), and `ETLDocStoreManager` (sync, for etl/). Each delegates to a backend-specific adapter (`_MongoDocStore` or `_PostgresDocStore`). SQL migration scripts create `doc_<collection>` tables with JSONB data columns. Data migration scripts transfer existing MongoDB documents to PostgreSQL idempotently.
