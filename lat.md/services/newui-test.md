@@ -45,3 +45,13 @@ Static assets and templates for the chat UI and any server-rendered pages.
 
 - `static/` — Contains the chat UI (`test_conversation.html`) used for testing and demonstration.
 - `templates/` — Jinja2 templates if any server-rendered pages exist.
+
+## Duplicate message prevention
+
+The bot reply is delivered via both the HTTP response and a WebSocket push, and HTMX re-swaps can create multiple script instances — both cause duplicate messages.
+
+The chat route (`POST /api/chat/{chatbot_id}`) saves the bot message, pushes it via `ConnectionManager.send_message`, and returns it in the HTTP response. The client template `test_conversation.html` must avoid rendering the same bot message twice when both channels carry it.
+
+HTMX partial re-swaps can re-insert and re-execute the inline `<script>` tag, creating multiple independent script instances. Each instance opens its own WebSocket and maintains its own dedup state (`seenMessageIds`, `httpBotAddedThisTurn`), so two instances can each render the same bot answer once — one via HTTP, the other via its WebSocket push — producing a visible duplicate.
+
+A window-level instance counter (`window.__tcInstanceCounter`) implements a "latest instance wins" guard. Each execution increments the counter and records its own `myInstanceId`. The `isStaleInstance()` helper returns `true` when a newer instance has since been created. All entry points (`sendMessage`, `connectWs`, `ws.onopen`, `ws.onmessage`) bail out immediately if the instance is stale, so only the most recent script instance actively processes messages.

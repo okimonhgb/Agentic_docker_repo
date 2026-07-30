@@ -1,6 +1,8 @@
 # Channel Service
 
-External messaging channel service for WhatsApp Business integration. A FastAPI application (port 8010) that receives webhooks from messaging providers, normalizes incoming messages, and forwards them to the newui_test chat API.
+WhatsApp Business integration bridge. A FastAPI application (port 8010) that receives webhooks from messaging providers and forwards normalized messages directly to agentic.
+
+External messaging channel service for WhatsApp Business integration. A FastAPI application (port 8010) that receives webhooks from messaging providers, normalizes incoming messages, and forwards them directly to the agentic service's `/run/with-graph` endpoint (bypassing newui_test).
 
 The service is designed to be a lightweight bridge — it does not contain business logic, only message translation and routing.
 
@@ -24,7 +26,7 @@ Each provider handles:
 
 HTTP endpoints for receiving webhooks, serving the admin dashboard, and health checks.
 
-- `POST /webhooks/{provider}` — Incoming webhook from a messaging provider. Validates, normalizes, and forwards to newui_test.
+- `POST /webhooks/{provider}` — Incoming webhook from a messaging provider. Validates, normalizes, and forwards to agentic.
 - `GET /webhooks/{provider}` — Webhook verification (challenge-response) for provider registration.
 - `GET /admin/` — Simple admin dashboard for monitoring.
 - `GET /health` — Health check.
@@ -32,3 +34,7 @@ HTTP endpoints for receiving webhooks, serving the admin dashboard, and health c
 ## Configuration
 
 Settings are loaded from environment variables via [[channel/app/config.py]]. Provider credentials (API keys, webhook secrets) are configured per provider.
+
+## Database
+
+The channel service persists conversation history to PostgreSQL (`channel_conversations`, `channel_messages`, `channel_events` tables in the `public` schema). It does not use MongoDB or a vector store.

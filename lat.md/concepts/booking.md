@@ -69,6 +69,8 @@ Allows owners to edit contact info, services, and staff via chat with a preview 
 ### Response agent
 Common terminal node that composes the final user-facing text from whichever upstream agent ran. Defined in [[agentic/agents/booking/response_agent.py]].
 
+The `_booking_state_passthrough()` helper spreads booking state fields into every return dict, ensuring they survive the subgraph-to-parent-graph state merge. It includes `pending_booking_confirmation`, `pending_cancel_confirmation`, `pending_reschedule`, and other slot/clarification fields. Without this passthrough, LangGraph subgraph state merging can drop these flags, causing the bot to lose confirmation context between turns (e.g., user says "evet" but the bot re-shows availability instead of finalizing the booking).
+
 ## Owner edit planning
 
 Owner edits use a two-tier disambiguation strategy:
@@ -90,6 +92,8 @@ The [[agentic/booking/booking_manager.py]] module is the database access layer f
 - Timezone-aware past-time filtering using `ZoneInfo("Europe/Istanbul")` (not container UTC) so slot availability matches the user's local time.
 - Dialect-aware SQL via `BaseRepository` helpers (`group_concat`, `curdate`, `date_sub_days`) for MySQL/PostgreSQL compatibility.
 
+All "today"/"current time" comparisons (real slot filtering, min/max availability range, and virtual gap-slot synthesis in `_generate_gap_slots`) go through [[agentic/booking/booking_manager.py#BookingManager#_local_now]], a shared helper returning timezone-aware `datetime.now(ZoneInfo(...))`. Using the container's naive UTC clock instead would show/hide "today" slots at the wrong wall-clock time relative to the user's timezone.
+
 ## Organization management
 
 [[agentic/booking/organization_manager.py]] handles CRUD operations for booking organizations, locations, services, and resources. Called by both the owner edit agent and the platformui admin.
@@ -99,6 +103,12 @@ The [[agentic/booking/booking_manager.py]] module is the database access layer f
 Bridges booking data into the RAG system so users can ask informational questions about services.
 
 [[agentic/booking/rag_integration.py]] bridges booking data with the RAG system. Service descriptions, resource profiles, and organization documents are indexed as ChromaDB documents so users can ask informational questions ("what services do you offer?") that may be answered via RAG rather than structured booking queries.
+
+## State propagation refactor plan
+
+A staged plan to eliminate the dual state propagation problem is in `agentic/docs/BOOKING_STATE_REFACTOR_PLAN.md`.
+
+Empirical verification with LangGraph 1.0.2 showed `Command(update=...)` on shared GraphState keys propagates correctly from subgraphs — the hidden-marker workaround premise is stale. The plan promotes cross-turn booking fields into GraphState (the shared schema), then deletes the marker channel, cleans up guards and return paths, and improves trace readability (agent attribution, dedup, real timestamps).
 
 ## Booking state in GraphState
 

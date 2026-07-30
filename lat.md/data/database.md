@@ -1,6 +1,8 @@
 # Database Architecture
 
-The platform uses a single PostgreSQL database (`platform`) with three schemas, migrated from MySQL. MongoDB is used for conversation storage and agent traces.
+Supports PostgreSQL and MySQL as relational DBs, with dual-backend doc stores and vector stores. Platform is mid-migration from MySQL+MongoDB+ChromaDB toward consolidated PostgreSQL.
+
+Document storage (MongoDB ↔ PG JSONB) and vector storage (ChromaDB ↔ pgvector) are dual-backend, selected per service at runtime. See [[architecture#Backend compatibility]] for the full matrix.
 
 ## PostgreSQL: `platform` database
 
@@ -119,3 +121,21 @@ Dual-backend vector storage with **pgvector as the default** and ChromaDB as a f
 When using pgvector, embeddings live in `langchain_pg_collection` / `langchain_pg_embedding` tables within the `platform` database. When using ChromaDB, collections are stored on disk in `agentic/chroma_phrase_db/`. Embeddings are generated with OpenAI `text-embedding-3-small` (dimension 1536).
 
 See [[concepts/rag#Vector store]] for the full dual-backend design and migration details.
+
+## MySQL (legacy, still active for platformui)
+
+MySQL is the primary relational DB for platformui and a legacy fallback for all other services via the 3-priority env var chain.
+
+| Service | MySQL status |
+|---|---|
+| agentic | Fallback (when no `POSTGRES_*` vars set) |
+| newui_test | Fallback |
+| platformui | **Primary** — uses `pymysql` directly, no PG path |
+| channel | Fallback |
+| etl | Fallback |
+
+The MySQL-to-PostgreSQL migration scripts are in `agentic/scripts/`:
+- `migrate_mysql_to_pg.py` — Migrates the `platform` database to the `public` schema
+- `migrate_aux_dbs.py` — Migrates `chat_bot` and `buyingen_2` as schemas
+
+After migration, the MySQL data is stale — platformui reads from MySQL while other services read from PostgreSQL, meaning platformui must be migrated before MySQL can be decommissioned.

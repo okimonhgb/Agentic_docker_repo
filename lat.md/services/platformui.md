@@ -39,7 +39,7 @@ User login, session handling, role-based access, and OAuth SSO integration.
 
 Database and configuration operations for chatbot settings, LLM models, and search.
 
-- [[platformui/chatbot_db_lib.py]] — Database operations for chatbot configuration (PostgreSQL).
+- [[platformui/chatbot_db_lib.py]] — Database operations for chatbot configuration (MySQL via pymysql).
 - [[platformui/chatbot_db_mongo_lib.py]] — Database operations for conversation data (MongoDB).
 - [[platformui/chatbot_llm_lib.py]] — LLM configuration management.
 - [[platformui/chatbot_search_lib.py]] — Search configuration for chatbots.
@@ -71,8 +71,18 @@ Routes for configuring and managing LangGraph workflow definitions.
 
 - [[platformui/workflow_routes.py]] — Workflow configuration routes for admin.
 
+## Big chat widget
+
+`platformui/templates/big-chat.html` sends each user message over HTTP and also opens a WebSocket for streaming responses.
+
+It connects to `wss://buyingen.com/ws/stream/{sessionId}` for streaming, but agent-backed chatbots reply synchronously in the HTTP response (`data.is_agent_response`).
+
+Closing the WebSocket after an `is_agent_response` reply does not cancel an already in-flight `message` event, so a racing WS push for the same turn could render the identical answer a second time. A per-turn `agentResponseHandled` flag (set before `ws.close()`, checked at the top of `ws.onmessage`) prevents this duplicate bubble.
+
 ## Database
 
-Uses SQLAlchemy with PostgreSQL. The ORM models are defined in [[platformui/models.py]]. Database migrations are managed via Flask-Migrate/Alembic in `platformui/migrations/`.
+Uses **MySQL** as its primary relational DB via `pymysql` (not PostgreSQL — not yet migrated). Falls back to SQLite if MySQL is unavailable.
 
-The platformui connects to the same PostgreSQL `platform` database as agentic and newui_test, sharing the `public`, `chat_bot`, and `buyingen_2` schemas. See [[data/database]].
+Uses **MySQL** as its primary relational database via `pymysql` (not PostgreSQL — platformui has not been migrated to the PG dual-backend pattern). The ORM models in [[platformui/models.py]] use `mysql+pymysql://` and fall back to SQLite if MySQL is unavailable. Database migrations are managed via Flask-Migrate/Alembic in `platformui/migrations/`.
+
+MongoDB is used directly via `pymongo.MongoClient` for message storage — no `DOC_STORE_BACKEND` abstraction. ChromaDB is used directly for search and collection management — no `VECTOR_STORE_BACKEND` abstraction. See [[architecture#Backend compatibility]] for how this differs from other services.
