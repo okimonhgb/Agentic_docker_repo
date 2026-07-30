@@ -110,10 +110,19 @@ A staged plan to eliminate the dual state propagation problem is in `agentic/doc
 
 Empirical verification with LangGraph 1.0.2 showed `Command(update=...)` on shared GraphState keys propagates correctly from subgraphs — the hidden-marker workaround premise is stale. The plan promotes cross-turn booking fields into GraphState (the shared schema), then deletes the marker channel, cleans up guards and return paths, and improves trace readability (agent attribution, dedup, real timestamps).
 
+**Stage 2 (completed): Read-path cleanup.** All booking agent read paths now use `state.get()` via [[agentic/booking/context_codec.py#get_booking_field]] (with legacy marker fallback for pre-migration sessions). Key changes:
+- `booking_agent.py`: Replaced `_extract_booking_context_candidates` + `merge_booking_contexts` marker logic with direct `get_booking_field()` reads. Reconfirmation detection now compares `proposal_id` from state vs last booking_agent marker. Slot fields preserved in state return for pending confirmations (no longer cleared to None).
+- `intent_classifier.py`: Replaced `iter_recent_booking_state_entries` marker scan with `get_booking_field()` for slot/service context. Clearing logic now nullifies state fields directly (no clearing-marker emission).
+- `response_agent.py`: Deleted `_booking_state_passthrough()` — `take_last` reducers handle propagation automatically.
+- `availability_agent.py`: `proposal_id` now written to `state_updates` (not just markers) so it propagates via GraphState.
+
 ## Booking state in GraphState
 
 Booking-specific fields are defined directly in the shared [[agentic/core/state.py#GraphState]] (not a separate sub-state) to enable cross-subgraph persistence. Key fields:
 - `pending_reschedule`, `pending_booking_confirmation`, `pending_cancel_confirmation` — Confirmation flow gates.
-- `slot_date`, `slot_start`, `slot_end`, `slot_timezone` — Current slot being worked on.
+- `slot_date`, `slot_start`, `slot_end`, `slot_timezone`, `slot_date_end` — Current slot being worked on.
 - `service_id`, `service_name`, `resource_id`, `resource_name` — Selected service/resource.
 - `old_slot_date`, `old_slot_start`, `old_resource_id` — Previous slot for reschedule/cancel.
+- `proposal_id`, `booking_status` — Booking epoch tracking and lifecycle status (promoted from BookingState in the Stage 1 schema promotion).
+- `needs_clarification`, `pending_clarification_slot_start`, `pending_clarification_slot_date` — Split-turn clarification state (promoted).
+- `available`, `availability_decision`, `is_range_query`, `is_flexible`, `time_preference` — Availability query context (promoted).
