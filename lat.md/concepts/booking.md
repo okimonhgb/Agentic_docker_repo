@@ -116,6 +116,11 @@ Empirical verification with LangGraph 1.0.2 showed `Command(update=...)` on shar
 - `response_agent.py`: Deleted `_booking_state_passthrough()` — `take_last` reducers handle propagation automatically.
 - `availability_agent.py`: `proposal_id` now written to `state_updates` (not just markers) so it propagates via GraphState.
 
+**Stage 3 (completed): Write-path cleanup and state preservation.** Removed `build_booking_state_messages()` calls and fixed state preservation across turns. Key changes:
+- `intent_classifier.py`: For booking intents, `service_name`/`service_id`/`resource_name`/`resource_id` are preserved from state instead of always cleared. When a booking confirmation is pending, `slot_date`/`slot_start`/`slot_end` are also preserved so time-only follow-ups (e.g. "9.30") reuse the prior date.
+- `intent_agent.py`: Pending booking confirmation path now preserves `service_name`/`service_id`/`resource_name`/`resource_id` and carries `slot_date`/`slot_start` from state when the user sends a time-only or service-only update.
+- `api/main.py`: Booking state fields persisted to and restored from `state_fields` in MongoDB via `_extract_booking_state_fields`/`_restore_booking_state_fields`.
+
 ## Booking state in GraphState
 
 Booking-specific fields are defined directly in the shared [[agentic/core/state.py#GraphState]] (not a separate sub-state) to enable cross-subgraph persistence. Key fields:
