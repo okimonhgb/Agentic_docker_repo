@@ -8,4 +8,5 @@ Core business logic and architectural patterns of the Agentic Platform.
 - [[memory]] — Multi-tier conversation memory with summarization and agent traces
 - [[workflow-builder]] — LLM-driven workflow generation from natural language descriptions
 - [[supervisor]] — Intent classification and routing across booking, RAG, and general subgraphs
+- [[sector-config]] — Sector-specific configuration for hard overrides and feature flags
 - [[doc-store]] — Dual-backend document storage (MongoDB/PostgreSQL) for sessions, traces, and messages
