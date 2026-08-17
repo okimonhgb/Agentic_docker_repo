@@ -18,6 +18,14 @@ Key architectural decisions, trade-offs, and rationale for the Agentic Platform.
 
 **Trade-off:** The state dictionary is large and most fields are irrelevant to most agents. However, LangGraph's state slicing (each node only sees what it reads) mitigates this.
 
+## take_last_not_none for booking fields
+
+**Decision:** Booking state fields (`service_name`, `service_id`, `slot_date`, etc.) use `take_last_not_none` instead of `take_last` as their reducer in `GraphState`.
+
+**Rationale:** When `booking_subgraph` and `rag_subgraph` run in parallel via LangGraph's `Send()` API, both receive a copy of the parent state. The RAG subgraph does not set booking fields, so its copy has them as `None`. With `take_last`, whichever subgraph finishes last wins — if RAG finishes last, booking fields are wiped to `None`. `take_last_not_none` preserves the existing non-None value when the new value is `None`, preventing this race condition.
+
+**Trade-off:** Fields using `take_last_not_none` cannot be explicitly cleared to `None` by a node. This is acceptable for booking fields since they are always set to a concrete value or left untouched; no node needs to clear them.
+
 ## Deterministic-first intent classification
 
 **Decision:** Apply hard-coded keyword/regex rules before LLM classification for intent routing.
