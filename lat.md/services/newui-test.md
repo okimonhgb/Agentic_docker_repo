@@ -15,7 +15,7 @@ HTTP and WebSocket endpoints for chat interactions and conversation history.
 Primary HTTP endpoints for sending messages and retrieving history.
 
 - `POST /api/chat/{chatbot_id}` — Main chat endpoint. Saves the user message to MongoDB, calls `llm_service.get_llm_response()` to forward to agentic, saves the bot response, and returns it. Also optionally pushes via WebSocket.
-- `GET /api/chat/{chatbot_id}/history` — Retrieve conversation history for a session.
+- `GET /api/session/{session_id}/history` — Retrieve persisted messages for a session. Called by the customer chat widget on page load so the conversation survives a browser refresh. Enforces that the authenticated user matches the session's embedded user id.
 
 ### WebSocket
 
@@ -41,12 +41,20 @@ Shared modules for configuration, database connections, and MongoDB access.
 
 ## Frontend
 
-Static assets and templates for the chat UI and any server-rendered pages.
+Static assets and Jinja2 templates for both the admin test UI and the public customer chat UI.
 
-- `static/` — Contains the chat UI (`test_conversation.html`) used for testing and demonstration.
-- `templates/` — Jinja2 templates if any server-rendered pages exist.
+- `static/css/stiltai-ui.css` — Shared styles, including the customer chat (`cc-*`) classes.
+- `templates/customer_chat_shell.html` — Shell for the public `/b/{slug}` chat page. Loads the customer chat partial and hosts `window.initCustomerChat`, which manages the session id, WebSocket, message rendering, history restore, and now a **"New chat" reset**.
+- `templates/partials/customer_chat.html` — Public chat UI rendered inside the shell. Includes the brand header, language switch, logout button, and the new **"New chat"** button.
+- `templates/partials/test_conversation.html` — Admin test chat UI used for internal testing. It has its own sidebar, session history list, and a "New chat" button.
 
-## Duplicate message prevention
+### Session handling in customer chat
+
+The public chat uses a deterministic base session id so a returning customer resumes the same MongoDB-backed conversation across devices.
+
+The **"New chat"** button lets users escape a stale conversation state without logging out. It generates a fresh timestamped session id, stores it in `localStorage`, clears the visible history, and reconnects the WebSocket.
+
+### Duplicate message prevention
 
 The bot reply is delivered via both the HTTP response and a WebSocket push, and HTMX re-swaps can create multiple script instances — both cause duplicate messages.
 
