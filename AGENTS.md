@@ -3,6 +3,8 @@
 
 - Run `lat search` to find sections relevant to your task. Read them to understand the design intent before writing code.
 - Run `lat expand` on user prompts to expand any `[[refs]]` — this resolves section names to file locations and provides context.
+- **Use codegraph (`mcp0_codegraph_explore`) as the FIRST call** for any code question or before any edit. It returns verbatim source + blast radius (callers/dependents) in one sub-second call, replacing grep+read loops. Pass symbol names, file names, or a natural-language question. For edits, call it on the symbols you plan to change to see all dependents that need verification.
+- **Codegraph auto-syncs** via a file-watcher daemon (`.codegraph/daemon.pid`). The index lags writes by ~1s. If results seem stale after a recent edit, wait 2s and re-query. If the daemon is down (no process matching `codegraph serve`), restart it with `codegraph serve --mcp --path /home/apps/Agentic_docker_repo` in the background.
 
 # Post-task checklist (REQUIRED — do not skip)
 
