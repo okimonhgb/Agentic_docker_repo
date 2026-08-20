@@ -81,6 +81,10 @@ Generates the final user-facing response. Defined in [[agentic/agents/booking/re
 
 For CHECK intent with `availability_decision` of `no_slots_at_all` or `no_availability`, the response agent skips the "slot unavailable" deterministic relay (which incorrectly says "bu saat artık müsait değil") and instead uses the availability agent's own "no slots in range" message. This ensures availability queries get an appropriate response even when the negotiation agent runs and finds no alternatives.
 
+When a CHECK-intent availability query returns slots, the fast-path formatter (the `availability_content is not None` branch) leads with a one-sentence "earliest available" summary (e.g. "En erken müsait randevu saatimiz 21 Ağustos 2026 tarihinde, saat 09:00.") before the full date/time list, so the reply reads naturally instead of dropping straight into a raw list. [[agentic/agents/booking/response_agent.py#_extract_earliest_availability]] parses the earliest (date, start-time) pair from the raw, date-ascending availability content — taking the chronological minimum start time on the first date line even when multiple resources/ranges are listed — and [[agentic/agents/booking/response_agent.py#_format_iso_date]] localizes it via the `availability_earliest_summary` template in `booking_keywords.json`.
+
+`_booking_state_preserve` re-attaches a fixed set of booking fields (`_BOOKING_STATE_KEYS`) onto every `response_agent` return so they survive the subgraph boundary. `pending_owner_edit` was missing from this list, so a pending owner-edit confirmation was silently dropped after the fast-path relay — the next turn's "evet" couldn't find what edit to confirm. Fixed by adding `pending_owner_edit` to `_BOOKING_STATE_KEYS`.
+
 ### Negotiation agent
 When the requested slot is unavailable, proposes alternative nearby slots. Defined in [[agentic/agents/booking/negotiation_agent.py]].
 
