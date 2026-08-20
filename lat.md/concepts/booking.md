@@ -65,10 +65,21 @@ When a service name recovered from stale conversation state is no longer valid f
 
 For RESCHEDULE, when the LLM fails to extract `old_slot_date`/`old_slot_start` or incorrectly extracts the new desired time as the old time, the agent auto-populates them from the user's database bookings — picking the booking whose time differs from the new desired time when multiple bookings exist.
 
+For CHECK intent with no specific date, time, service, or resource extracted by the LLM (e.g. "müsait misiniz", "are you free", "quando siete disponibili"), the agent forces a 7-day range query from today. This is a language-agnostic fallback — it does not depend on detecting question markers in any specific language, so it works for any phrasing the intent classifier routes as CHECK. Service clarification is only triggered for BOOK intent when multiple services exist and none is specified; CHECK intent always proceeds to availability listing across all services.
+
+Booking inquiries that contain a question marker (e.g. "hangi saate randevu alabilirim", "en erken ne zaman", "when can I get an appointment") are classified as CHECK, not BOOK — the question word signals an inquiry about availability, not a booking command. This is handled by [[agentic/booking/intent_policy.py#has_pure_availability_query]] via the `question_markers` parameter, using keyword sets from `booking_keywords.json` plus language-agnostic question words ("en erken", "earliest", "when", "which", etc.).
+
+When the LLM sets `needs_clarification=True` for a CHECK intent with a range query (e.g. asking "Hangi saatte?"), the datetime agent overrides it to `False` and routes to the availability agent to show all available slots instead of asking for a specific time.
+
 ### Availability agent
 Queries the database for available slots matching the requested service, resource, date, and time. Defined in [[agentic/agents/booking/availability_agent.py]].
 
 When the requested date is beyond the organization's booking horizon (max available slot date), the agent **clamps** the date to `max_date` and proceeds with the query, rather than rejecting it. This ensures users always see the nearest available slots.
+
+### Response agent
+Generates the final user-facing response. Defined in [[agentic/agents/booking/response_agent.py]].
+
+For CHECK intent with `availability_decision` of `no_slots_at_all` or `no_availability`, the response agent skips the "slot unavailable" deterministic relay (which incorrectly says "bu saat artık müsait değil") and instead uses the availability agent's own "no slots in range" message. This ensures availability queries get an appropriate response even when the negotiation agent runs and finds no alternatives.
 
 ### Negotiation agent
 When the requested slot is unavailable, proposes alternative nearby slots. Defined in [[agentic/agents/booking/negotiation_agent.py]].
