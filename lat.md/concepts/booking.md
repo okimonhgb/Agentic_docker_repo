@@ -96,6 +96,8 @@ Rescheduling requires explicit user confirmation. The booking_agent relies on `p
 - `intent_agent` now preserves `pending_reschedule=True` when routing an affirmative reply to `booking_agent`.
 - `booking_agent` also executes when it sees an explicit yes keyword (e.g. "evet") and the old/new slot context is present, even if the flag is missing.
 
+Confirmation detection accepts equivalent affirmative phrasings, not just exact keyword matches. `is_explicit_yes_confirmation` in [[agentic/agents/booking/booking_agent.py#booking_agent_node]] first tries an exact match against the multilingual `confirm_yes` keyword list (fast path, unchanged), then falls back to: the reply is short (<=6 tokens) AND contains a yes-keyword as a whole word AND contains no `confirm_no` keyword. This lets phrases like "ok, I approve" or "evet onaylıyorum" be recognized as confirmations without requiring the whole message to equal a single keyword, while still rejecting negation-bearing replies like "no, not ok". No LLM call is added to keep the hot confirmation path fast and deterministic. See `agentic/docs/REFACTOR_PLAN_2026_08.md` Stage 2.
+
 ### List appointments agent
 Retrieves and formats a user's upcoming appointments. Defined in [[agentic/agents/booking/list_appointments_agent.py]].
 
@@ -112,6 +114,12 @@ Allows owners to edit contact info, services, and staff via chat with a preview 
 Common terminal node that composes the final user-facing text from whichever upstream agent ran. Defined in [[agentic/agents/booking/response_agent.py]].
 
 The `_booking_state_passthrough()` helper spreads booking state fields into every return dict, ensuring they survive the subgraph-to-parent-graph state merge. It includes `pending_booking_confirmation`, `pending_cancel_confirmation`, `pending_reschedule`, and other slot/clarification fields. Without this passthrough, LangGraph subgraph state merging can drop these flags, causing the bot to lose confirmation context between turns (e.g., user says "evet" but the bot re-shows availability instead of finalizing the booking).
+
+## Shared booking utilities
+
+[[agentic/agents/booking/booking_utils.py]] consolidates small helpers that were duplicated up to 12 times across the booking agents. See `agentic/docs/REFACTOR_PLAN_2026_08.md` Stage 1 for the full rationale and migration list.
+
+Canonical implementations: [[agentic/agents/booking/booking_utils.py#load_booking_keywords]] (mtime-cache-aware JSON loader, replaces ~12 duplicate `_load_booking_keywords` copies), [[agentic/agents/booking/booking_utils.py#all_keywords]] (replaces ~7 copies), [[agentic/agents/booking/booking_utils.py#lang_value]] (replaces ~5 copies), [[agentic/agents/booking/booking_utils.py#safe_keyword_in_query]], and [[agentic/agents/booking/booking_utils.py#get_latest_user_text]]. Callers in `intent_agent.py`, `availability_agent.py`, `booking_agent.py`, `response_agent.py`, `list_appointments_agent.py`, and `shared.py` import these under their original local names (e.g. `from .booking_utils import load_booking_keywords as _load_booking_keywords`) to avoid touching call sites. `datetime_agent.py`/`datetime_helpers.py` keep their own `all_keywords`/`lang_value` (subtly different value normalization) and were deliberately not consolidated to avoid regression risk.
 
 ## Owner edit planning
 
